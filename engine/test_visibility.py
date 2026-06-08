@@ -50,15 +50,41 @@ def test_public_only_after_revealed():
 
 
 def test_directed_only_to_owner():
-    state = _state(revealed=set())
+    state = _state(revealed={"C4"})                                          # C4 已发布
     assert "C4" in {i.id for i in visible_info_for("林雅", WUYE, state)}      # C4 定向给林雅
     for other in WUYE.participants:
         if other != "林雅":
             assert "C4" not in {i.id for i in visible_info_for(other, WUYE, state)}
 
 
+def test_directed_clue_respects_reveal_phase():
+    # 未发布：C4（定向给林雅，reveal_phase=搜证1）对谁都不可见
+    empty = _state(revealed=set())
+    for pid in WUYE.participants:
+        assert "C4" not in {i.id for i in visible_info_for(pid, WUYE, empty)}, \
+            f"C4 未发布却对 {pid} 可见 —— 定向线索提前泄露！"
+    # 已发布：只有收件人林雅可见
+    after = _state(revealed={"C4"})
+    assert "C4" in {i.id for i in visible_info_for("林雅", WUYE, after)}
+    for other in ("陈博", "苏婉"):
+        assert "C4" not in {i.id for i in visible_info_for(other, WUYE, after)}
+
+
+def test_no_future_phase_clue_visible():
+    # 只发布搜证1那批（C1/C2/C5 公开 + C4 定向给林雅），断言搜证2那批一律不可见
+    state = _state(revealed={"C1", "C2", "C5", "C4"})
+    future = {"C3", "C6", "C8", "C9", "C7"}   # 搜证2 那批（含定向 C7 给苏婉）
+    for pid in WUYE.participants:
+        ids = {i.id for i in visible_info_for(pid, WUYE, state)}
+        assert not (ids & future), f"{pid} 看到了未来阶段线索：{ids & future}"
+        assert "truth" not in ids
+
+
 if __name__ == "__main__":
     test_own_secret_visible_others_and_truth_not()
     test_public_only_after_revealed()
     test_directed_only_to_owner()
-    print("✅ engine VisibilityGate TDD 全过：无他人私密 / 无真相 / 公开需已公布 / 定向仅限收件人")
+    test_directed_clue_respects_reveal_phase()
+    test_no_future_phase_clue_visible()
+    print("✅ engine VisibilityGate TDD 全过："
+          "无他人私密 / 无真相 / 公开需已公布 / 定向受 reveal_phase 约束 / 无未来阶段线索")
