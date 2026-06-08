@@ -52,29 +52,29 @@ flowchart LR
 ## 快速开始
 
 ```powershell
-# 1. 建环境 + 装开发依赖（uv）
-uv sync
+# 1. 安装开发依赖
+npm install
 
 # 2. 跑确定性核心测试
-uv run pytest -q
+npm test
 
 # 3. 跑一局 CLI 探针（需硅基流动 API key）
 $env:SILICONFLOW_API_KEY = "你的key"
 python spike/game.py
 ```
 
-运行期零第三方依赖（仅标准库）；`uv` / `pytest` / `Ruff` 只在开发期用。
+主线运行期零第三方依赖（当前仅 devDependencies）；`npm` / `Vitest` / `Biome` / `TypeScript` 只在开发期用。`spike/` 是已完成的 Python 探针存档，"跑一局"命令保留用于复现实验。
 
 ## 状态与路线图
 
 - ✅ **Phase 0**　探针（CLI）：已验证 AI 肯演 / 会撒谎 / 不自爆、推理可用、延迟可接受
 - 🚧 **Phase 1**　硬核引擎 + eval 台：信息隔离核心、`reveal_phase` 不变量、按阶段发牌、计票 —— 进行中
-- ⬜ **Phase 2**　人在环 + 第一版网页前端（FastAPI + HTTP/SSE）
+- ⬜ **Phase 2**　人在环 + 第一版网页前端（Node 轻服务 + HTTP/SSE）
 - ⬜ **Phase 3**　打磨体验、加第二个剧本、按反馈迭代
 
 ## 技术与设计
 
-- Python 3.12 · uv · pytest · Ruff；编排主链路手写（LangGraph 仅作不进主链路的独立 spike）。
+- Node.js 20+ · TypeScript · npm · Vitest · Biome；编排主链路手写（框架 spike 不进主链路）。
 - 设计文档：[docs/specs/2026-06-05-whodunit-design.md](docs/specs/2026-06-05-whodunit-design.md)
 - 产品需求 PRD：[docs/specs/2026-06-08-whodunit-prd.md](docs/specs/2026-06-08-whodunit-prd.md)
 - 协作 AI 项目指南：[CLAUDE.md](CLAUDE.md)

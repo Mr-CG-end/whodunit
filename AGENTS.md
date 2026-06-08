@@ -1,6 +1,6 @@
-# CLAUDE.md — whodunit 项目指南
+# AGENTS.md — whodunit 项目指南
 
-> 给 Claude Code 的常驻指南：每次会话加载。这里写**不看代码就看不出来**的约定与决策；细节见 `docs/`。
+> 给 Codex / OpenAI 代码代理的常驻指南：每次会话加载。这里写**不看代码就看不出来**的约定与决策；细节见 `docs/`。
 
 ## 这是什么
 
@@ -22,17 +22,17 @@
 
 ## 架构铁律（改动前必读）
 
-1. **信息隔离由代码强制，绝不靠提示词/框架。** 玩家 prompt 只装 `visible_info_for(pid, scenario, state)` 的产物——没拿到的就无从说起。
-2. **`reveal_phase` 是不变量**：线索发早了＝泄密。`PRIVATE`(秘密) 对 owner 恒可见；`DIRECTED`(定向线索) 须 owner **且已发布**(`id ∈ revealed_info`)；`OMNISCIENT`(真相) 玩家永不可见。
-3. **编排主链路手写。** `GameGraph` = **手写的确定性控制器，不是 LangGraph**。LangGraph 只作不进主链路的独立 spike（见 design §10）。别在主链路引入 LangGraph。
+1. **信息隔离由代码强制，绝不靠提示词/框架。** 玩家 prompt 只装 `visibleInfoFor(pid, scenario, state)` 的产物——没拿到的就无从说起。
+2. **`revealPhase` 是不变量**：线索发早了＝泄密。`private`(秘密) 对 owner 恒可见；`directed`(定向线索) 须 owner **且已发布**(`id ∈ revealedInfo`)；`omniscient`(真相) 玩家永不可见。
+3. **编排主链路手写。** `GameGraph` = **手写的确定性控制器，不是 LangGraph / 其他图框架**。框架实验只作不进主链路的独立 spike。别在主链路引入编排框架。
 4. **DM 安全边界 = 拆角色**：`GameGraph`（确定性、看真相、只出动作）+ `DMSpeaker`（只拿 public-safe context、无权看全量真相）。真相只在复盘阶段才放开给 DMSpeaker。
 5. **永不崩盘**：任何单个 AI/LLM 失败只降级、不崩整局（重试→换模型→安全发言）。
 
 ## 开发约定
 
 - **TDD**（确定性核心）：先写失败测试→`npm test` 看红→最小实现→看绿→提交。
-- **分支**：在 `main` 外的特性分支做。提交用**中文 conventional 风格**，消息末行加：
-  `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
+- **分支**：在 `main` 外的特性分支做。提交用**中文 conventional 风格**。如果本次提交由 Codex 协作完成，消息末行加：
+  `Co-Authored-By: OpenAI Codex <noreply@openai.com>`
 - **垂直切片分期**：每个里程碑端到端可用、不糊弄（design §9）。Phase 1＝引擎+eval（CLI）；Phase 2＝人在环+真实前端；Phase 3＝打磨分享。
 - **差异化内核保持小**：作者会亲手重写核心来内化（路线 A）——别把 VisibilityGate / GameGraph / eval 写臃肿。
 - **eval 不做 golden-text 断言**：LLM 部分断言不变量/结构（阶段顺序、可见性、不自爆、投票合法），不比文本。

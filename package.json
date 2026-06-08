@@ -1,0 +1,22 @@
+{
+  "name": "whodunit",
+  "version": "0.1.0",
+  "description": "AI 多智能体剧本杀引擎 —— 用架构（而非提示词）约束全知模型，演好信息受限的角色",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check .",
+    "check:fix": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2",
+    "typescript": "^5",
+    "vitest": "^4"
+  }
+}
