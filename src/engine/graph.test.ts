@@ -85,3 +85,13 @@ describe("GameGraph 投票计票", () => {
     expect(g.result?.accused).toBe(null);
   });
 });
+
+describe("GameGraph 复盘揭真相", () => {
+  it("复盘阶段把真相文本搬进公开公告", async () => {
+    const g = new GameGraph(WUYE, stubs());
+    await g.runToEnd();
+    const reveal = g.state.publicEvents.find((e) => e.type === "clue_release" && e.payload.infoId === "truth");
+    expect(reveal).toBeDefined();
+    expect(String(reveal?.payload.text)).toContain("凶手是陈博");
+  });
+});

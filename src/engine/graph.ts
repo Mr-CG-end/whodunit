@@ -11,7 +11,8 @@ type GraphStep =
   | { kind: "enterPhase"; phase: string }
   | { kind: "speak"; pid: string; instruction: string }
   | { kind: "vote"; pid: string }
-  | { kind: "tally" };
+  | { kind: "tally" }
+  | { kind: "revealTruth" };
 
 export interface VoteResult {
   counts: Record<string, number>;
@@ -67,6 +68,8 @@ export class GameGraph {
           steps.push({ kind: "vote", pid });
         }
         steps.push({ kind: "tally" });
+      } else if (phase === "复盘") {
+        steps.push({ kind: "revealTruth" });
       }
     }
     return steps;
@@ -85,6 +88,9 @@ export class GameGraph {
         break;
       case "tally":
         this.doTally();
+        break;
+      case "revealTruth":
+        this.revealTruth();
         break;
     }
   }
@@ -135,6 +141,19 @@ export class GameGraph {
     const accused = majority(this.votes);
     this.result = { counts, accused };
     this.push({ id: "vote_result", type: "vote", actor: "engine", visibility: "public", payload: { counts, accused } });
+  }
+
+  private revealTruth(): void {
+    for (const item of this.scenario.infoItems) {
+      if (item.scope !== "omniscient") continue;
+      this.push({
+        id: `reveal_${item.id}`,
+        type: "clue_release",
+        actor: "engine",
+        visibility: "public",
+        payload: { infoId: item.id, text: item.text },
+      });
+    }
   }
 
   private push(ev: GameEvent): void {
