@@ -52,29 +52,29 @@ Killer self-incrimination check: ✅ none detected
 ## Quickstart
 
 ```powershell
-# 1. Create env + install dev deps (uv)
-uv sync
+# 1. Install dev dependencies
+npm install
 
 # 2. Run the deterministic core tests
-uv run pytest -q
+npm test
 
 # 3. Play one CLI spike game (needs a SiliconFlow API key)
 $env:SILICONFLOW_API_KEY = "your-key"
 python spike/game.py
 ```
 
-Zero third-party runtime dependencies (stdlib only); `uv` / `pytest` / `Ruff` are dev-time only.
+The mainline has zero runtime third-party dependencies for now; `npm` / `Vitest` / `Biome` / `TypeScript` are dev-time only. `spike/` is the archived Python spike, and the "play one game" command stays for reproducing that experiment.
 
 ## Status & roadmap
 
 - ✅ **Phase 0**　Spike (CLI): validated that AIs will role-play / lie / not self-incriminate, that reasoning holds up, and that latency is acceptable
 - 🚧 **Phase 1**　Core engine + eval harness: information-isolation core, `reveal_phase` invariant, phase-driven clue release, vote tally — in progress
-- ⬜ **Phase 2**　Human-in-the-loop + first real web frontend (FastAPI + HTTP/SSE)
+- ⬜ **Phase 2**　Human-in-the-loop + first real web frontend (light Node service + HTTP/SSE)
 - ⬜ **Phase 3**　Polish, a second scenario, iterate on feedback
 
 ## Tech & design
 
-- Python 3.12 · uv · pytest · Ruff; orchestration hand-written on the main path (LangGraph kept as an off-path spike only).
+- Node.js 20+ · TypeScript · npm · Vitest · Biome; orchestration hand-written on the main path (framework spikes stay off the main path).
 - Design doc: [docs/specs/2026-06-05-whodunit-design.md](docs/specs/2026-06-05-whodunit-design.md)
 - Product requirements (PRD): [docs/specs/2026-06-08-whodunit-prd.md](docs/specs/2026-06-08-whodunit-prd.md)
 - Guide for collaborating AIs: [CLAUDE.md](CLAUDE.md)

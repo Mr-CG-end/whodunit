@@ -10,14 +10,14 @@
 
 ## 工具链 / 常用命令
 
-- Python 3.12，**uv** 管理依赖与环境，**pytest** 测试，**Ruff** 查错+格式化。
-- `uv sync` 建环境装依赖；`uv run pytest -q` 跑测试；`uv run ruff check .` 查错（`uv run ruff check --fix .` 自动修）。
-- **运行期零依赖**（仅标准库）。新增运行期依赖要慎重、要说明理由。`.venv/` 不入库。
+- Node.js 20+，**npm** 管理依赖，**TypeScript strict**，**Vitest** 测试，**Biome** 查错+格式化。
+- `npm install` 装开发依赖；`npm test` 跑测试；`npm run typecheck` 做类型检查；`npm run check` 跑 Biome（`npm run check:fix` 自动修）。
+- **运行期零依赖**（当前仅 devDependencies）。新增运行期依赖要慎重、要说明理由。`node_modules/` 不入库。
 
 ## 仓库结构
 
-- `engine/` — **正式领域核心**，主战场。`models.py`(InfoItem/Event/GameState) · `scenario.py`(Scenario+WUYE+PHASES) · `visibility.py`(VisibilityGate) · `test_*.py`。
-- `spike/` — 一次性探针，**已完成、已验证假设，不是主线代码**。别在它上面盖正式功能；要的逻辑迁进 `engine/`。
+- `src/engine/` — **正式领域核心**，主战场。`models.ts`(InfoItem/GameEvent/GameState) · `scenario.ts`(Scenario+WUYE+PHASES) · `visibility.ts`(VisibilityGate) · `*.test.ts`。
+- `spike/` — Python 一次性探针存档，**已完成、已验证假设，不是主线代码**。别在它上面盖正式功能；要的逻辑迁进 `src/engine/`。
 - `docs/specs/` — 设计文档 + PRD。`docs/plans/` — 分阶段实现计划（TDD 任务清单）。
 
 ## 架构铁律（改动前必读）
@@ -30,7 +30,7 @@
 
 ## 开发约定
 
-- **TDD**（确定性核心）：先写失败测试→`uv run pytest` 看红→最小实现→看绿→提交。
+- **TDD**（确定性核心）：先写失败测试→`npm test` 看红→最小实现→看绿→提交。
 - **分支**：在 `main` 外的特性分支做。提交用**中文 conventional 风格**，消息末行加：
   `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
 - **垂直切片分期**：每个里程碑端到端可用、不糊弄（design §9）。Phase 1＝引擎+eval（CLI）；Phase 2＝人在环+真实前端；Phase 3＝打磨分享。
@@ -41,4 +41,4 @@
 
 - 设计文档：`docs/specs/2026-06-05-whodunit-design.md`
 - 产品需求（PRD）：`docs/specs/2026-06-08-whodunit-prd.md`
-- 当前计划：`docs/plans/2026-06-08-engine-isolation-core.md`
+- 当前计划：`docs/plans/2026-06-08-ts-engine.md`
