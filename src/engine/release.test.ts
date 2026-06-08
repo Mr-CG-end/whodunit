@@ -11,9 +11,9 @@ it("搜证1 恰好发布其线索（C4 定向不进公开）", () => {
   expect(state.revealedInfo).toEqual(new Set(["C1", "C2", "C5", "C4"]));
   const publicIds = new Set(state.publicEvents.filter((e) => e.type === "clue_release").map((e) => e.payload.infoId));
   expect(publicIds).toEqual(new Set(["C1", "C2", "C5"]));
-  const linIds = new Set((state.privateEvents["林雅"] ?? []).map((e) => e.payload.infoId));
+  const linIds = new Set((state.privateEvents.林雅 ?? []).map((e) => e.payload.infoId));
   expect(linIds).toEqual(new Set(["C4"]));
-  expect(state.privateEvents["苏婉"] ?? []).toHaveLength(0);
+  expect(state.privateEvents.苏婉 ?? []).toHaveLength(0);
 });
 
 it("复盘阶段绝不泄露真相", () => {
