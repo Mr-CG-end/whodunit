@@ -95,3 +95,19 @@ describe("GameGraph 复盘揭真相", () => {
     expect(String(reveal?.payload.text)).toContain("凶手是陈博");
   });
 });
+
+describe("GameGraph 永不崩盘", () => {
+  it("玩家全部失败时整局仍跑完：发言降级、投票弃权", async () => {
+    const g = new GameGraph(WUYE, [
+      stubParticipant("林雅", { fail: true }),
+      stubParticipant("陈博", { fail: true }),
+      stubParticipant("苏婉", { fail: true }),
+    ]);
+    await expect(g.runToEnd()).resolves.toBeDefined(); // 不抛
+    expect(g.done()).toBe(true);
+    const utts = g.state.publicEvents.filter((e) => e.type === "utterance");
+    expect(utts.length).toBeGreaterThan(0);
+    expect(utts.every((e) => e.payload.text === "我再想想。")).toBe(true);
+    expect(g.result?.accused).toBe(null); // 全弃权 → 无指认
+  });
+});

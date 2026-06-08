@@ -7,6 +7,8 @@ import { revealCluesForPhase } from "./release";
 import type { Scenario } from "./scenario";
 import { majority, tallyVotes } from "./tally";
 
+const SAFE_LINE = "我再想想。";
+
 type GraphStep =
   | { kind: "enterPhase"; phase: string }
   | { kind: "speak"; pid: string; instruction: string }
@@ -112,8 +114,14 @@ export class GameGraph {
   private async doSpeak(pid: string, instruction: string): Promise<void> {
     const ctx = visibleContext(pid, this.scenario, this.state);
     const player = this.players.get(pid);
-    if (!player) return;
-    const line = await player.speak(ctx, instruction);
+    let line = SAFE_LINE;
+    if (player) {
+      try {
+        line = await player.speak(ctx, instruction);
+      } catch {
+        line = SAFE_LINE;
+      }
+    }
     this.push({
       id: `utt_${pid}_${this.cursor}`,
       type: "utterance",
@@ -129,7 +137,11 @@ export class GameGraph {
     const player = this.players.get(pid);
     let target: string | null = null;
     if (player) {
-      target = await player.vote(ctx, candidates);
+      try {
+        target = await player.vote(ctx, candidates);
+      } catch {
+        target = null;
+      }
     }
     if (target !== null && !candidates.includes(target)) target = null;
     this.votes[pid] = target;
