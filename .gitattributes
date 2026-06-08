@@ -1,0 +1,2 @@
+# Archived Phase 0 Python spike; keep it in the repository but exclude it from GitHub language stats.
+spike/** -linguist-detectable
