@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from engine.models import InfoItem, PRIVATE, PUBLIC, DIRECTED, OMNISCIENT
+from engine.models import DIRECTED, OMNISCIENT, PRIVATE, PUBLIC, InfoItem
 
 
 @dataclass

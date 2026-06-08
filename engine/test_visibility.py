@@ -14,7 +14,7 @@ import sys
 if hasattr(sys.stdout, "reconfigure"):  # Windows 控制台默认 GBK，切 UTF-8 才能打中文/emoji
     sys.stdout.reconfigure(encoding="utf-8")
 
-from engine.models import GameState, OMNISCIENT, PUBLIC
+from engine.models import OMNISCIENT, PUBLIC, GameState
 from engine.scenario import WUYE
 from engine.visibility import visible_info_for
 

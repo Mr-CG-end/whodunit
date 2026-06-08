@@ -6,7 +6,7 @@
 """
 from __future__ import annotations
 
-from engine.models import GameState, InfoItem, PRIVATE, PUBLIC, DIRECTED
+from engine.models import DIRECTED, PRIVATE, PUBLIC, GameState, InfoItem
 from engine.scenario import Scenario
 
 
