@@ -61,3 +61,27 @@ describe("GameGraph 搜证发线索", () => {
     }
   });
 });
+
+describe("GameGraph 投票计票", () => {
+  it("收集投票、计票、产出唯一指认", async () => {
+    const g = new GameGraph(WUYE, [
+      stubParticipant("林雅", { voteFor: "陈博" }),
+      stubParticipant("陈博", { voteFor: "苏婉" }),
+      stubParticipant("苏婉", { voteFor: "陈博" }),
+    ]);
+    await g.runToEnd();
+    expect(g.result).toEqual({ counts: { 陈博: 2, 苏婉: 1 }, accused: "陈博" });
+    const ballots = g.state.publicEvents.filter((e) => e.type === "vote" && e.actor !== "engine");
+    expect(ballots).toHaveLength(3);
+  });
+
+  it("平票时不强行裁决（accused = null）", async () => {
+    const g = new GameGraph(WUYE, [
+      stubParticipant("林雅", { voteFor: "陈博" }),
+      stubParticipant("陈博", { voteFor: "林雅" }),
+      stubParticipant("苏婉", { voteFor: null }),
+    ]);
+    await g.runToEnd();
+    expect(g.result?.accused).toBe(null);
+  });
+});

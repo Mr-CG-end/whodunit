@@ -5,8 +5,18 @@ import { createGameState, type GameEvent, type GameState } from "./models";
 import type { Participant } from "./participant";
 import { revealCluesForPhase } from "./release";
 import type { Scenario } from "./scenario";
+import { majority, tallyVotes } from "./tally";
 
-type GraphStep = { kind: "enterPhase"; phase: string } | { kind: "speak"; pid: string; instruction: string };
+type GraphStep =
+  | { kind: "enterPhase"; phase: string }
+  | { kind: "speak"; pid: string; instruction: string }
+  | { kind: "vote"; pid: string }
+  | { kind: "tally" };
+
+export interface VoteResult {
+  counts: Record<string, number>;
+  accused: string | null;
+}
 
 export class GameGraph {
   readonly state: GameState;
@@ -14,6 +24,8 @@ export class GameGraph {
   private readonly players: Map<string, Participant>;
   private readonly steps: GraphStep[];
   private cursor = 0;
+  private votes: Record<string, string | null> = {};
+  result: VoteResult | null = null;
 
   constructor(scenario: Scenario, participants: Participant[]) {
     this.scenario = scenario;
@@ -50,6 +62,11 @@ export class GameGraph {
         for (const pid of this.scenario.participants) {
           steps.push({ kind: "speak", pid, instruction: "请就目前线索发言。" });
         }
+      } else if (phase === "投票") {
+        for (const pid of this.scenario.participants) {
+          steps.push({ kind: "vote", pid });
+        }
+        steps.push({ kind: "tally" });
       }
     }
     return steps;
@@ -62,6 +79,12 @@ export class GameGraph {
         break;
       case "speak":
         await this.doSpeak(s.pid, s.instruction);
+        break;
+      case "vote":
+        await this.doVote(s.pid);
+        break;
+      case "tally":
+        this.doTally();
         break;
     }
   }
@@ -92,6 +115,26 @@ export class GameGraph {
       visibility: "public",
       payload: { text: line },
     });
+  }
+
+  private async doVote(pid: string): Promise<void> {
+    const ctx = visibleContext(pid, this.scenario, this.state);
+    const candidates = this.scenario.participants.filter((p) => p !== pid);
+    const player = this.players.get(pid);
+    let target: string | null = null;
+    if (player) {
+      target = await player.vote(ctx, candidates);
+    }
+    if (target !== null && !candidates.includes(target)) target = null;
+    this.votes[pid] = target;
+    this.push({ id: `vote_${pid}`, type: "vote", actor: pid, visibility: "public", payload: { target } });
+  }
+
+  private doTally(): void {
+    const counts = tallyVotes(this.votes);
+    const accused = majority(this.votes);
+    this.result = { counts, accused };
+    this.push({ id: "vote_result", type: "vote", actor: "engine", visibility: "public", payload: { counts, accused } });
   }
 
   private push(ev: GameEvent): void {
