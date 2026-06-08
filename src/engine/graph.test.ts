@@ -44,3 +44,20 @@ describe("GameGraph 阶段推进", () => {
     expect(seen.陈博.some((c) => c.includes("你就是凶手"))).toBe(true); // 自己的秘密对自己可见
   });
 });
+
+describe("GameGraph 搜证发线索", () => {
+  it("线索按阶段发布，不提前", async () => {
+    const g = new GameGraph(WUYE, stubs());
+    while (!g.done() && g.state.phase !== "搜证1") await g.step();
+    expect(g.state.revealedInfo.has("C1")).toBe(true); // 搜证1 线索已发
+    expect(g.state.revealedInfo.has("C3")).toBe(false); // 搜证2 线索尚未发
+  });
+
+  it("跑完后各搜证阶段线索都已发布", async () => {
+    const g = new GameGraph(WUYE, stubs());
+    await g.runToEnd();
+    for (const id of ["C1", "C2", "C5", "C4", "C3", "C6", "C8", "C9", "C7"]) {
+      expect(g.state.revealedInfo.has(id)).toBe(true);
+    }
+  });
+});

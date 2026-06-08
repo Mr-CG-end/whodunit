@@ -3,6 +3,7 @@
 import { visibleContext } from "./context";
 import { createGameState, type GameEvent, type GameState } from "./models";
 import type { Participant } from "./participant";
+import { revealCluesForPhase } from "./release";
 import type { Scenario } from "./scenario";
 
 type GraphStep = { kind: "enterPhase"; phase: string } | { kind: "speak"; pid: string; instruction: string };
@@ -74,6 +75,9 @@ export class GameGraph {
       visibility: "public",
       payload: { phase },
     });
+    if (phase.startsWith("搜证")) {
+      revealCluesForPhase(this.scenario, this.state, phase);
+    }
   }
 
   private async doSpeak(pid: string, instruction: string): Promise<void> {
