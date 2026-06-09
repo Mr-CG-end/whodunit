@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GameGraph } from "../engine/graph";
 import { stubParticipant } from "../engine/participant";
 import { WUYE } from "../engine/scenario";
-import { evalGame } from "./metrics";
+import { aggregate, evalGame, type GameRecord } from "./metrics";
 
 describe("evalGame", () => {
   it("完整一局：completed + 指认正确判定（真凶 陈博）", async () => {
@@ -41,5 +41,39 @@ describe("evalGame", () => {
       (e) => !(e.type === "phase_change" && e.payload.phase === "投票"),
     );
     expect(evalGame(g.state, WUYE).phaseSequenceValid).toBe(false);
+  });
+});
+
+const rec = (over: Partial<GameRecord["metrics"]>, durationMs: number, callCount: number): GameRecord => ({
+  metrics: {
+    completed: true,
+    accused: "陈博",
+    accusedCorrect: true,
+    phaseSequenceValid: true,
+    voteFormatValid: true,
+    ...over,
+  },
+  durationMs,
+  stats: { callCount, promptTokens: 10, completionTokens: 5, cachePromptTokens: 2, totalLatencyMs: durationMs },
+});
+
+describe("aggregate", () => {
+  it("聚合完成率/正确率/性能", () => {
+    const s = aggregate([
+      rec({}, 1000, 12),
+      rec({ accusedCorrect: false }, 2000, 12),
+      rec({ completed: false, accusedCorrect: false }, 500, 3),
+    ]);
+    expect(s.games).toBe(3);
+    expect(s.completionRate).toBeCloseTo(2 / 3);
+    expect(s.accuracyRate).toBeCloseTo(1 / 2); // 完成 2 局里 1 局对
+    expect(s.avgDurationMs).toBeCloseTo((1000 + 2000 + 500) / 3);
+    expect(s.stats.callCount).toBe(27);
+    expect(s.stats.promptTokens).toBe(30);
+  });
+
+  it("sanity 违反计数", () => {
+    const s = aggregate([rec({ voteFormatValid: false }, 1000, 12), rec({}, 1000, 12)]);
+    expect(s.sanityViolations).toBe(1);
   });
 });

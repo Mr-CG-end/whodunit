@@ -1,4 +1,5 @@
 // eval 指标 —— 纯函数,从一局 GameState 算确定性指标（设计 §3）。不调 LLM。
+import type { RouterStats } from "../engine/llm";
 import type { GameState } from "../engine/models";
 import type { Scenario } from "../engine/scenario";
 
@@ -31,4 +32,44 @@ export function evalGame(state: GameState, scenario: Scenario): GameMetrics {
   const accusedCorrect = accused === scenario.killer;
 
   return { completed, accused, accusedCorrect, phaseSequenceValid, voteFormatValid };
+}
+
+export interface GameRecord {
+  metrics: GameMetrics;
+  durationMs: number;
+  stats: RouterStats;
+}
+
+export interface EvalSummary {
+  games: number;
+  completionRate: number;
+  accuracyRate: number;
+  sanityViolations: number;
+  avgDurationMs: number;
+  stats: RouterStats;
+}
+
+export function aggregate(records: GameRecord[]): EvalSummary {
+  const games = records.length;
+  const completed = records.filter((r) => r.metrics.completed);
+  const correct = completed.filter((r) => r.metrics.accusedCorrect).length;
+  const sanityViolations = records.filter((r) => !r.metrics.phaseSequenceValid || !r.metrics.voteFormatValid).length;
+  const stats = records.reduce<RouterStats>(
+    (acc, r) => ({
+      callCount: acc.callCount + r.stats.callCount,
+      promptTokens: acc.promptTokens + r.stats.promptTokens,
+      completionTokens: acc.completionTokens + r.stats.completionTokens,
+      cachePromptTokens: acc.cachePromptTokens + r.stats.cachePromptTokens,
+      totalLatencyMs: acc.totalLatencyMs + r.stats.totalLatencyMs,
+    }),
+    { callCount: 0, promptTokens: 0, completionTokens: 0, cachePromptTokens: 0, totalLatencyMs: 0 },
+  );
+  return {
+    games,
+    completionRate: games ? completed.length / games : 0,
+    accuracyRate: completed.length ? correct / completed.length : 0,
+    sanityViolations,
+    avgDurationMs: games ? records.reduce((s, r) => s + r.durationMs, 0) / games : 0,
+    stats,
+  };
 }
