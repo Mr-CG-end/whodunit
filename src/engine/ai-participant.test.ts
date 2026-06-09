@@ -1,15 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import { aiParticipant } from "./ai-participant";
-import type { LLMRouter } from "./llm";
+import type { LLMRouter, RouterStats } from "./llm";
+
+const noStats = (): RouterStats => ({
+  callCount: 0,
+  promptTokens: 0,
+  completionTokens: 0,
+  cachePromptTokens: 0,
+  totalLatencyMs: 0,
+});
 
 const routerWith = (reply: string): LLMRouter => ({
   complete: vi.fn<LLMRouter["complete"]>(async () => reply),
+  stats: noStats,
 });
 
 describe("aiParticipant", () => {
   it("speak 用 player 角色 + 含授权欺骗的 system + 现成 ctx", async () => {
     const complete = vi.fn<LLMRouter["complete"]>(async () => "我是无辜的。");
-    const router: LLMRouter = { complete };
+    const router: LLMRouter = { complete, stats: noStats };
     const p = aiParticipant("林雅", router);
     const out = await p.speak("我的秘密…", "请发言");
     expect(out).toBe("我是无辜的。");
