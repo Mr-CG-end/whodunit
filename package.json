@@ -12,10 +12,13 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check": "biome check .",
-    "check:fix": "biome check --write ."
+    "check:fix": "biome check --write .",
+    "play": "tsx src/play.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2",
+    "@types/node": "^25.9.2",
+    "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^4"
   }
