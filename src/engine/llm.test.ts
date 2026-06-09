@@ -35,3 +35,40 @@ describe("createLLMRouter 基本调用", () => {
     await expect(router.complete("player", "s", "u")).rejects.toThrow(/SILICONFLOW_API_KEY/);
   });
 });
+
+const errFetch = (calls: { n: number }) =>
+  vi.fn<typeof fetch>(async () => {
+    calls.n++;
+    throw new Error("network down");
+  });
+
+describe("createLLMRouter 重试", () => {
+  it("前几次失败、之后成功则返回", async () => {
+    let n = 0;
+    const fetchFn = vi.fn<typeof fetch>(async () => {
+      n++;
+      if (n < 3) throw new Error("network");
+      return okResp("ok");
+    });
+    const router = createLLMRouter({ apiKey: "k", fetchFn, maxRetries: 3, backoffMs: 0 });
+    expect(await router.complete("player", "s", "u")).toBe("ok");
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+  });
+
+  it("重试耗尽后抛错（1 + maxRetries 次尝试）", async () => {
+    const calls = { n: 0 };
+    const fetchFn = errFetch(calls);
+    const router = createLLMRouter({ apiKey: "k", fetchFn, maxRetries: 2, backoffMs: 0 });
+    await expect(router.complete("player", "s", "u")).rejects.toThrow(/重试 2 次/);
+    expect(calls.n).toBe(3);
+  });
+
+  it("非 2xx 触发重试", async () => {
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue({ ok: false, status: 500, json: async () => ({}) } as unknown as Response);
+    const router = createLLMRouter({ apiKey: "k", fetchFn, maxRetries: 1, backoffMs: 0 });
+    await expect(router.complete("player", "s", "u")).rejects.toThrow();
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+});

@@ -25,18 +25,28 @@ export function createLLMRouter(opts: RouterOptions = {}): LLMRouter {
   const playerModel = opts.playerModel ?? process.env.PLAYER_MODEL ?? "deepseek-ai/DeepSeek-V4-Flash";
   const dmModel = opts.dmModel ?? process.env.DM_MODEL ?? "deepseek-ai/DeepSeek-V4-Pro";
   const endpoint = opts.endpoint ?? ENDPOINT;
+  const maxRetries = opts.maxRetries ?? 2;
+  const backoffMs = opts.backoffMs ?? 200;
+  const timeoutMs = opts.timeoutMs ?? 90000;
   const temperature = opts.temperature ?? 0.8;
   const fetchFn = opts.fetchFn ?? globalThis.fetch;
 
   async function once(body: string): Promise<string> {
-    const resp = await fetchFn(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body,
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = (await resp.json()) as { choices: { message: { content: string } }[] };
-    return data.choices[0].message.content.trim();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetchFn(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body,
+        signal: controller.signal,
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = (await resp.json()) as { choices: { message: { content: string } }[] };
+      return data.choices[0].message.content.trim();
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function complete(role: Role, system: string, user: string): Promise<string> {
@@ -50,7 +60,16 @@ export function createLLMRouter(opts: RouterOptions = {}): LLMRouter {
       ],
       temperature,
     });
-    return once(body);
+    let lastErr: unknown;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await once(body);
+      } catch (err) {
+        lastErr = err;
+        if (attempt < maxRetries) await new Promise((r) => setTimeout(r, backoffMs * 2 ** attempt));
+      }
+    }
+    throw new Error(`LLM 调用失败（重试 ${maxRetries} 次）：${String(lastErr)}`);
   }
 
   return { complete };
