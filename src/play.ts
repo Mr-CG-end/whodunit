@@ -1,9 +1,13 @@
 // CLI runner —— 用真 LLM 玩家跑一局《雨夜书房》并打印 transcript。
-// 需要环境变量 SILICONFLOW_API_KEY。运行：npm run play
+// 需要 SILICONFLOW_API_KEY（可写进 .env，见 .env.example）。运行：npm run play
+import { existsSync } from "node:fs";
 import { aiParticipant } from "./engine/ai-participant";
 import { GameGraph } from "./engine/graph";
 import { createLLMRouter } from "./engine/llm";
 import { WUYE } from "./engine/scenario";
+
+// 本地开发：若存在 .env 就加载（key 不入库）。
+if (existsSync(".env")) process.loadEnvFile(".env");
 
 async function main(): Promise<void> {
   const router = createLLMRouter();
