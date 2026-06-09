@@ -72,3 +72,37 @@ describe("createLLMRouter 重试", () => {
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 });
+
+const usageResp = (content: string, usage: unknown): Response =>
+  ({
+    ok: true,
+    status: 200,
+    json: async () => ({ choices: [{ message: { content } }], usage }),
+  }) as unknown as Response;
+
+describe("createLLMRouter stats()", () => {
+  it("累积 usage 与计时", async () => {
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(usageResp("x", { prompt_tokens: 100, completion_tokens: 20, prompt_cache_hit_tokens: 80 }));
+    const router = createLLMRouter({ apiKey: "k", fetchFn });
+    await router.complete("player", "s", "u");
+    await router.complete("player", "s", "u");
+    const s = router.stats();
+    expect(s.callCount).toBe(2);
+    expect(s.promptTokens).toBe(200);
+    expect(s.completionTokens).toBe(40);
+    expect(s.cachePromptTokens).toBe(160);
+    expect(s.totalLatencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("usage 缺失时累积记 0、不报错", async () => {
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(usageResp("x", undefined));
+    const router = createLLMRouter({ apiKey: "k", fetchFn });
+    await router.complete("player", "s", "u");
+    const s = router.stats();
+    expect(s.callCount).toBe(1);
+    expect(s.promptTokens).toBe(0);
+    expect(s.cachePromptTokens).toBe(0);
+  });
+});

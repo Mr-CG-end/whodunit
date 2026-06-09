@@ -4,6 +4,7 @@ export type Role = "player" | "dm";
 
 export interface LLMRouter {
   complete(role: Role, system: string, user: string): Promise<string>;
+  stats(): RouterStats;
 }
 
 export interface RouterOptions {
@@ -16,6 +17,24 @@ export interface RouterOptions {
   timeoutMs?: number;
   temperature?: number;
   fetchFn?: typeof fetch;
+}
+
+export interface RouterStats {
+  callCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  cachePromptTokens: number;
+  totalLatencyMs: number;
+}
+
+interface ChatResponse {
+  choices: { message: { content: string } }[];
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_cache_hit_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  };
 }
 
 const ENDPOINT = "https://api.siliconflow.cn/v1/chat/completions";
@@ -31,7 +50,16 @@ export function createLLMRouter(opts: RouterOptions = {}): LLMRouter {
   const temperature = opts.temperature ?? 0.8;
   const fetchFn = opts.fetchFn ?? globalThis.fetch;
 
+  const tally: RouterStats = {
+    callCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    cachePromptTokens: 0,
+    totalLatencyMs: 0,
+  };
+
   async function once(body: string): Promise<string> {
+    const t0 = Date.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -42,9 +70,15 @@ export function createLLMRouter(opts: RouterOptions = {}): LLMRouter {
         signal: controller.signal,
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = (await resp.json()) as { choices: { message: { content: string } }[] };
+      const data = (await resp.json()) as ChatResponse;
+      const u = data.usage;
+      tally.callCount += 1;
+      tally.promptTokens += u?.prompt_tokens ?? 0;
+      tally.completionTokens += u?.completion_tokens ?? 0;
+      tally.cachePromptTokens += u?.prompt_cache_hit_tokens ?? u?.prompt_tokens_details?.cached_tokens ?? 0;
       return data.choices[0].message.content.trim();
     } finally {
+      tally.totalLatencyMs += Date.now() - t0;
       clearTimeout(timer);
     }
   }
@@ -72,5 +106,5 @@ export function createLLMRouter(opts: RouterOptions = {}): LLMRouter {
     throw new Error(`LLM 调用失败（重试 ${maxRetries} 次）：${String(lastErr)}`);
   }
 
-  return { complete };
+  return { complete, stats: () => ({ ...tally }) };
 }
