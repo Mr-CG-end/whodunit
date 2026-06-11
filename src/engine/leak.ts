@@ -21,12 +21,17 @@ const SELF_BURY = [
   "我杀了",
   "我杀害",
   "凶手就是我",
-  "我承认是我",
+  "我承认是我杀",
   "是我下的手",
   "我动手杀",
   "确实是我干的",
   "人是我害",
+  "是我失手",
 ];
+
+/** 否定/假设/转述语境剥除：这些形态是辩护或引述、不是认罪（"人不是我杀的""如果我杀了人""你们觉得是我杀的吗"）。 */
+const HEDGED_RE =
+  /(不|并非|没有|怎么会|怎么可能|难道|如果|假如|要是|万一|觉得|认为|怀疑|是说|说|听说|指认)(是我杀|我杀了|我杀害|我是凶手|是凶手|凶手就是我|是我下的手|我动手杀|是我失手)/g;
 
 /**
  * 公开发言 text 是否泄露了 pid 不该说出口的信息。命中返回泄露的 info_id（自爆返回 "self_bury"），干净返回 null。
@@ -39,6 +44,9 @@ export function detectLeak(pid: string, text: string, scenario: Scenario, state:
     if (visible.has(item.id)) continue;
     if (item.aliases.some((a) => a !== "" && text.includes(a))) return item.id;
   }
-  if (pid === scenario.killer && SELF_BURY.some((kw) => text.includes(kw))) return "self_bury";
+  if (pid === scenario.killer) {
+    const asserted = text.replace(HEDGED_RE, "");
+    if (SELF_BURY.some((kw) => asserted.includes(kw))) return "self_bury";
+  }
   return null;
 }

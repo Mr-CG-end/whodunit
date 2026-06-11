@@ -62,3 +62,45 @@ describe("detectLeak 凶手自爆规则", () => {
     expect(detectLeak("陈博", "我没杀人，我整夜都在房间里。", WUYE, stateWith())).toBe(null);
   });
 });
+
+describe("detectLeak 凶手辩护不误伤", () => {
+  it("否认句放行：人不是我杀的", () => {
+    expect(detectLeak("陈博", "人不是我杀的。", WUYE, stateWith())).toBe(null);
+  });
+  it("假设句放行：如果我杀了人", () => {
+    expect(detectLeak("陈博", "如果我杀了人，何必留在山庄？", WUYE, stateWith())).toBe(null);
+  });
+  it("转述/反问放行：你们觉得是我杀的吗", () => {
+    expect(detectLeak("陈博", "你们觉得是我杀的吗？拿出证据来。", WUYE, stateWith())).toBe(null);
+  });
+  it("部分承认放行：承认卖鼎不等于认罪", () => {
+    expect(detectLeak("陈博", "我承认是我卖的鼎，但我没有杀人。", WUYE, stateWith())).toBe(null);
+  });
+  it("真认罪仍拦：失手自白", () => {
+    expect(detectLeak("陈博", "是我失手打死了他。", WUYE, stateWith())).toBe("self_bury");
+  });
+});
+
+describe("detectLeak 剧本内合法发言不误伤（线索 aliases 调参）", () => {
+  it("凶手的剧本口供放行：整夜没出过房间", () => {
+    expect(detectLeak("陈博", "我整夜没出过房间。", WUYE, stateWith())).toBe(null);
+  });
+  it("苏婉的剧本动作放行：建议送鉴定", () => {
+    expect(detectLeak("苏婉", "我建议把那尊鼎送去鉴定一下来历。", WUYE, stateWith())).toBe(null);
+  });
+  it("常识侦探话术放行：查脚印/指纹", () => {
+    expect(detectLeak("林雅", "窗外泥地说不定留有脚印，再查查鼎上的指纹。", WUYE, stateWith())).toBe(null);
+  });
+});
+
+describe("detectLeak 新增秘密 aliases 正向命中", () => {
+  it("别人提遗嘱副本 → 命中林雅秘密", () => {
+    expect(detectLeak("苏婉", "遗嘱副本是不是被人拿走了？", WUYE, stateWith())).toBe("secret_林雅");
+  });
+  it("别人提 00:40 → 命中林雅秘密", () => {
+    expect(detectLeak("陈博", "林雅 00:40 是不是进过书房？", WUYE, stateWith())).toBe("secret_林雅");
+  });
+  it("别人提 00:20 → 命中陈博秘密", () => {
+    expect(detectLeak("林雅", "00:20 你在哪里？", WUYE, stateWith())).toBe("secret_陈博");
+  });
+});
