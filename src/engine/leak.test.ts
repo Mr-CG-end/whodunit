@@ -11,6 +11,9 @@ describe("stripStageDirections 旁白清洗", () => {
   it("【方括号】内心戏也剥掉", () => {
     expect(stripStageDirections("【内心】我很慌")).toBe("我很慌");
   });
+  it("半角方括号同样剥掉", () => {
+    expect(stripStageDirections("[内心]我很慌")).toBe("我很慌");
+  });
   it("「」引号是合法发言，不剥", () => {
     expect(stripStageDirections("「我是苏婉」")).toBe("「我是苏婉」");
   });
