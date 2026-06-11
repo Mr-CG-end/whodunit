@@ -181,5 +181,6 @@ describe("GameGraph 输出校验闸", () => {
       .filter((e) => e.type === "utterance" && e.actor === "林雅")
       .map((e) => String(e.payload.text));
     expect(texts[0]).toBe("我有话直说。");
+    expect(calls).toBe(4); // 首回合空输出重说 1 次（2 次生成）+ 后两回合各 1 次
   });
 });
