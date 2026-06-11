@@ -1,6 +1,7 @@
 // GameGraph —— 手写确定性编排控制器（设计 §4 / docs/specs/2026-06-08-gamegraph-skeleton-design.md）。
 // 把已有纯函数（visibility / release / context / tally）串成一局；玩家由 Participant 注入。
 import { visibleContext } from "./context";
+import { detectLeak, stripStageDirections } from "./leak";
 import { createGameState, type GameEvent, type GameState } from "./models";
 import type { Participant } from "./participant";
 import { revealCluesForPhase } from "./release";
@@ -8,6 +9,9 @@ import type { Scenario } from "./scenario";
 import { majority, tallyVotes } from "./tally";
 
 const SAFE_LINE = "我再想想。";
+
+/** 每次发言最多生成 3 次：1 次原说 + 2 次重说（design §4，成本上界明确）。 */
+const MAX_SPEAK_ATTEMPTS = 3;
 
 type GraphStep =
   | { kind: "enterPhase"; phase: string }
@@ -116,10 +120,19 @@ export class GameGraph {
     const player = this.players.get(pid);
     let line = SAFE_LINE;
     if (player) {
-      try {
-        line = await player.speak(ctx, instruction);
-      } catch {
-        line = SAFE_LINE;
+      for (let attempt = 0; attempt < MAX_SPEAK_ATTEMPTS; attempt++) {
+        let raw: string;
+        try {
+          raw = await player.speak(ctx, instruction);
+        } catch {
+          break; // 抛错不在这层重试（网络重试在 LLMRouter），直接落安全发言
+        }
+        const cleaned = stripStageDirections(raw);
+        // 重说不带"你泄密了"反馈：把泄密原因喂回去本身就是泄露面（design §4）
+        if (cleaned !== "" && detectLeak(pid, cleaned, this.scenario, this.state) === null) {
+          line = cleaned;
+          break;
+        }
       }
     }
     this.push({
