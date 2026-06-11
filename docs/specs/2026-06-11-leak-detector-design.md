@@ -88,7 +88,7 @@ speak → strip → detectLeak
 | C | 重说策略 | 简单重试不带反馈，上限 N=2，仍不过用 SAFE_LINE | 已确认 |
 | D | aliases 调参 | 保守独有特征词，宁漏不误伤；暗示型留离线 eval | 已确认 |
 | E | 文件落点 | `src/engine/leak.ts` 新建 + 改 `graph.ts` / `scenario.ts` | 已确认 |
-| F | 凶手自爆规则 | 推荐：killer 专属短语表（沿用 spike `SELF_BURY`），理由见 §2 | **待用户确认** |
+| F | 凶手自爆规则 | killer 专属短语表（沿用 spike `SELF_BURY`），理由见 §2 | 已确认 |
 
 ## 8. 文件落点
 
