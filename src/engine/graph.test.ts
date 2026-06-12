@@ -111,3 +111,76 @@ describe("GameGraph 永不崩盘", () => {
     expect(g.result?.accused).toBe(null); // 全弃权 → 无指认
   });
 });
+
+describe("GameGraph 输出校验闸", () => {
+  it("旁白清洗后才入公开事件流", async () => {
+    const g = new GameGraph(WUYE, [
+      stubParticipant("林雅", { line: "（推了推眼镜）我没什么好说的。" }),
+      stubParticipant("陈博"),
+      stubParticipant("苏婉"),
+    ]);
+    await g.runToEnd();
+    const mine = g.state.publicEvents.filter((e) => e.type === "utterance" && e.actor === "林雅");
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine.every((e) => e.payload.text === "我没什么好说的。")).toBe(true);
+  });
+
+  it("泄密发言触发重说，原文绝不进事件流", async () => {
+    let calls = 0;
+    const leaky: Participant = {
+      id: "陈博",
+      async speak() {
+        calls++;
+        return calls === 1 ? "我怀疑苏婉昨晚给他下了安眠药。" : "我整夜都在自己房间。";
+      },
+      async vote() {
+        return null;
+      },
+    };
+    const g = new GameGraph(WUYE, [stubParticipant("林雅"), leaky, stubParticipant("苏婉")]);
+    await g.runToEnd();
+    const texts = g.state.publicEvents.filter((e) => e.type === "utterance").map((e) => String(e.payload.text));
+    expect(texts.some((t) => t.includes("安眠药"))).toBe(false);
+    expect(texts).toContain("我整夜都在自己房间。");
+  });
+
+  it("重说仍泄密 → 安全发言兜底（重试上限 2，共 3 次生成）", async () => {
+    let calls = 0;
+    const leaky: Participant = {
+      id: "陈博",
+      async speak() {
+        calls++;
+        return "人是我杀的。";
+      },
+      async vote() {
+        return null;
+      },
+    };
+    const g = new GameGraph(WUYE, [stubParticipant("林雅"), leaky, stubParticipant("苏婉")]);
+    await g.runToEnd();
+    const mine = g.state.publicEvents.filter((e) => e.type === "utterance" && e.actor === "陈博");
+    expect(mine.every((e) => e.payload.text === "我再想想。")).toBe(true);
+    expect(calls).toBe(9); // 3 个发言回合 × 3 次生成
+  });
+
+  it("清洗后为空视为无效输出，触发重说", async () => {
+    let calls = 0;
+    const silent: Participant = {
+      id: "林雅",
+      async speak() {
+        calls++;
+        return calls === 1 ? "（沉默不语）" : "我有话直说。";
+      },
+      async vote() {
+        return null;
+      },
+    };
+    const g = new GameGraph(WUYE, [silent, stubParticipant("陈博"), stubParticipant("苏婉")]);
+    await g.runToEnd();
+    const texts = g.state.publicEvents
+      .filter((e) => e.type === "utterance" && e.actor === "林雅")
+      .map((e) => String(e.payload.text));
+    expect(texts[0]).toBe("我有话直说。");
+    expect(calls).toBe(4); // 首回合空输出重说 1 次（2 次生成）+ 后两回合各 1 次
+  });
+});
