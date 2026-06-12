@@ -203,7 +203,7 @@ describe("GameGraph DM 话术", () => {
     const g = new GameGraph(WUYE, stubs(), dm);
     await g.runToEnd();
     const dmUtts = g.state.publicEvents.filter((e) => e.type === "utterance" && e.actor === "dm");
-    expect(dmUtts).toHaveLength(8);
+    expect(dmUtts).toHaveLength(WUYE.phases.length); // 复盘无开场白但有复盘词，恰好每阶段 1 条
     expect(dmUtts.every((e) => e.payload.text === "各位请就座。")).toBe(true);
   });
 
@@ -254,11 +254,25 @@ describe("GameGraph DM 话术", () => {
     await g.runToEnd();
     const evs = g.state.publicEvents;
     const dmUtts = evs.filter((e) => e.type === "utterance" && e.actor === "dm");
-    // 开场/自我介绍/搜证1/讨论1 被拦（C6 未发布）；搜证2/讨论2/投票放行 + 复盘词免检
+    // 推导：开场/自我介绍/搜证1/讨论1 被拦（C6 未发布）；搜证2/讨论2/投票 3 条放行 + 复盘词免检 1 条 = 4
     expect(dmUtts).toHaveLength(4);
     const c6Idx = evs.findIndex((e) => e.type === "clue_release" && e.payload.infoId === "C6");
     const firstDmIdx = evs.findIndex((e) => e.type === "utterance" && e.actor === "dm");
     expect(firstDmIdx).toBeGreaterThan(c6Idx);
+  });
+
+  it("dm 清洗后为空 → 放弃且不重试（区别于玩家的重说链）", async () => {
+    let calls = 0;
+    const silentDM: DMSpeaker = {
+      async speak() {
+        calls++;
+        return "（沉默地看着大家）";
+      },
+    };
+    const g = new GameGraph(WUYE, stubs(), silentDM);
+    await g.runToEnd();
+    expect(g.state.publicEvents.some((e) => e.actor === "dm")).toBe(false);
+    expect(calls).toBe(WUYE.phases.length); // 每个接入点恰好调用 1 次，零重试
   });
 
   it("dm 话术过旁白清洗", async () => {

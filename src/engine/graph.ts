@@ -116,7 +116,7 @@ export class GameGraph {
     if (phase.startsWith("搜证")) {
       revealCluesForPhase(this.scenario, this.state, phase);
     }
-    if (phase !== "复盘") await this.dmSay(this.dmInstruction(phase), true);
+    if (phase !== "复盘") await this.dmSay(this.dmInstruction(phase), /* checkLeak */ true);
   }
 
   /** 拼 DM 的主持指令：阶段名 + 要宣布的文本（开场=caseIntro；搜证=本阶段线索；directed 只给事实不给内容）。 */
@@ -221,7 +221,7 @@ export class GameGraph {
         payload: { infoId: item.id, text: item.text },
       });
     }
-    await this.dmSay(`真相已揭晓如下：\n${truths.join("\n")}\n请向各位玩家做复盘解说。`, false);
+    await this.dmSay(`真相已揭晓如下：\n${truths.join("\n")}\n请向各位玩家做复盘解说。`, /* checkLeak */ false);
   }
 
   private push(ev: GameEvent): void {
