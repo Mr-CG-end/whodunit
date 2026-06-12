@@ -79,6 +79,12 @@ describe("detectLeak 凶手辩护不误伤", () => {
   it("真认罪仍拦：失手自白", () => {
     expect(detectLeak("陈博", "是我失手打死了他。", WUYE, stateWith())).toBe("self_bury");
   });
+  it("假设句放行：如果确实是我干的", () => {
+    expect(detectLeak("陈博", "如果确实是我干的，我何必留下？", WUYE, stateWith())).toBe(null);
+  });
+  it("转述/反问放行：她是说人是我害的吗", () => {
+    expect(detectLeak("陈博", "她是说人是我害的吗？荒唐。", WUYE, stateWith())).toBe(null);
+  });
 });
 
 describe("detectLeak 剧本内合法发言不误伤（线索 aliases 调参）", () => {
