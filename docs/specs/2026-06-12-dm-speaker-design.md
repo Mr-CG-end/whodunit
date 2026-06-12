@@ -65,6 +65,7 @@ export function detectDMLeak(text: string, scenario: Scenario, state: GameState)
 ```
 
 - 比玩家更严：玩家的禁止集合随"自己可见"豁免，DM 没有豁免——它本来就不该知道任何私密。复用规则 1 的 aliases 子串匹配；无 self_bury（DM 不是凶手）。
+- 已知边界：WUYE 的 truth 故意无 aliases（3a 决策，加了会误伤玩家合法指认），因此 `detectDMLeak` 对真相实际零检测力——真相防泄完全靠第一道闸（`publicContext` 架构上不含 truth）。第二道闸对真相的意义在未来"DM 专用 aliases"需要时再议（现在不做）。
 - **复盘阶段免检**：真相已公开宣布，无密可泄；强检反而会被秘密 aliases（"00:20"等）误伤复盘解说。实现上 revealTruth 的 DM 话术不过 `detectDMLeak`（清洗仍做）。
 - **降级 = 放弃，不重试**：DM 话术泄密 / 清洗后为空 / `speak` 抛错 → 直接不产话术事件，整局照跑（结构公告兜底在场）。与玩家发言（必需品，重说 2 次）定位不同：话术是锦上添花，重试只增延迟。永不崩盘成本为零。
 

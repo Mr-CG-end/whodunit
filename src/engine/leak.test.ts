@@ -121,12 +121,15 @@ describe("detectDMLeak DM 话术泄密检测", () => {
   it("秘密 alias 恒命中——DM 没有任何豁免", () => {
     expect(detectDMLeak("有人给死者下过安眠药吗？", WUYE, stateWith("C1", "C2"))).toBe("secret_苏婉");
   });
-  it("真相 alias 恒命中（omniscient 永在禁止集合）", () => {
+  it("真相 alias 恒命中（omniscient 永在禁止集合，误投 revealedInfo 也不豁免）", () => {
     const truthAliased = {
       ...WUYE,
       infoItems: WUYE.infoItems.map((i) => (i.id === "truth" ? { ...i, aliases: ["失手用那尊鼎"] } : i)),
     };
-    expect(detectDMLeak("听说他是失手用那尊鼎打死的。", truthAliased, stateWith())).toBe("truth");
+    expect(detectDMLeak("听说他是失手用那尊鼎打死的。", truthAliased, stateWith("truth"))).toBe("truth");
+  });
+  it("秘密被误投进 revealedInfo 仍恒禁（scope 判定先于发布判定）", () => {
+    expect(detectDMLeak("有人给死者下过安眠药吗？", WUYE, stateWith("secret_苏婉"))).toBe("secret_苏婉");
   });
   it("干净的主持话术放行", () => {
     expect(detectDMLeak("夜色渐深，请各位开始搜证。", WUYE, stateWith("C1"))).toBe(null);
