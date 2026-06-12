@@ -56,6 +56,19 @@ describe("publicContext DM 视角", () => {
     expect(publicContext(WUYE, s)).toContain("林雅：我整晚都在房间。");
   });
 
+  it("dm 的发言渲染为〔DM 主持人〕，不与玩家名混淆", () => {
+    const s = createGameState(WUYE.participants);
+    s.publicEvents.push({
+      id: "dm1",
+      type: "utterance",
+      actor: "dm",
+      visibility: "public",
+      payload: { text: "欢迎来到雨夜山庄。" },
+    });
+    expect(publicContext(WUYE, s)).toContain("〔DM 主持人〕：欢迎来到雨夜山庄。");
+    expect(visibleContext("林雅", WUYE, s)).toContain("〔DM 主持人〕：欢迎来到雨夜山庄。");
+  });
+
   it("永不含秘密、真相与定向线索——即使已投递（隔离铁律）", () => {
     const s = createGameState(WUYE.participants);
     // 连 truth/秘密都灌进 revealedInfo：即使上游误投，scope 白名单也必须挡住

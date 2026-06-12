@@ -122,7 +122,7 @@ export class GameGraph {
   /** 拼 DM 的主持指令：阶段名 + 要宣布的文本（开场=caseIntro；搜证=本阶段线索；directed 只给事实不给内容）。 */
   private dmInstruction(phase: string): string {
     const parts = [`现在进入「${phase}」阶段，请向玩家宣布。`];
-    if (phase === "开场") parts.push(`请介绍案情：${this.scenario.caseIntro}`);
+    if (phase === "开场") parts.push("请基于上面【案情】做开场陈词。"); // caseIntro 已在 publicContext 首段，不重复递
     if (phase.startsWith("搜证")) {
       for (const item of this.scenario.infoItems) {
         if (item.revealPhase !== phase) continue;

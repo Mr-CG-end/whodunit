@@ -49,10 +49,11 @@ export function publicContext(scenario: Scenario, state: GameState): string;
 
 - 构造器加**可选**第三参 `dm?: DMSpeaker`。不传 = 现状裸公告：全部现有测试、stub 对局、`play.ts` 默认行为零改动。
 - 接入点（结构事件**照旧先 push**——eval/测试的阶段顺序断言依赖它们；DM 话术是其后的增量）：
-  1. **enterPhase**（复盘阶段跳过，见 revealTruth）：push `phase_change`、发线索（照旧）→ 若有 dm：拼 instruction（阶段名；开场阶段附 `caseIntro`；搜证阶段附**本阶段 public 线索的文本**，directed 线索只附"〔某人〕收到一条私下线索"的事实、**不附内容**）→ `dm.speak(publicContext(...), instruction)`。
+  1. **enterPhase**（复盘阶段跳过，见 revealTruth）：push `phase_change`、发线索（照旧）→ 若有 dm：拼 instruction（阶段名；开场阶段指向 publicCtx 首段的 `caseIntro` 做开场陈词（不重复递入，省 token）；搜证阶段附**本阶段 public 线索的文本**，directed 线索只附"〔某人〕收到一条私下线索"的事实、**不附内容**）→ `dm.speak(publicContext(...), instruction)`。
   2. **revealTruth**：push `clue_release(truth)`（照旧）→ 若有 dm：instruction 附 truth 文本 → 生成复盘词。
   3. 话术入流：`{ type: "utterance", actor: "dm", visibility: "public" }`，CLI transcript 自然带出。
 - 数据流一句话：**GameGraph（看真相，只出动作和"要宣布的文本"）→ DMSpeaker（只见 publicCtx + 递来的文本）→ 校验闸 → 公开事件流。**
+- 备忘：DM 话术嵌在 enterPhase/revealTruth 内、不在 `plan()` 的 steps 里——代价是这两类 step 不再是"确定性瞬时"（含一次 LLM 调用）。Phase 2 人在环若要在"结构公告之后、DM 话术之前"插交互断点，需把 dmSay 拆成独立 GraphStep。
 - 成本上界：每局 +8 次 LLM 调用（7 个阶段开场白 + 1 复盘词；投票/计票不另加话术，`phase_change(投票)` 的开场白已覆盖）。
 
 ## 5. DM 输出校验闸 — `src/engine/leak.ts`

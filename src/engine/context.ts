@@ -20,7 +20,9 @@ export function visibleContext(pid: string, scenario: Scenario, state: GameState
   }
   const utterances = state.publicEvents.filter((e) => e.type === "utterance");
   if (utterances.length > 0) {
-    const lines = utterances.map((e) => `${e.actor}：${String(e.payload.text ?? "")}`).join("\n");
+    const lines = utterances
+      .map((e) => `${e.actor === "dm" ? "〔DM 主持人〕" : e.actor}：${String(e.payload.text ?? "")}`)
+      .join("\n");
     parts.push(`【目前公开发言】\n${lines}`);
   }
   return parts.join("\n\n");
@@ -36,7 +38,9 @@ export function publicContext(scenario: Scenario, state: GameState): string {
   }
   const utterances = state.publicEvents.filter((e) => e.type === "utterance");
   if (utterances.length > 0) {
-    const lines = utterances.map((e) => `${e.actor}：${String(e.payload.text ?? "")}`).join("\n");
+    const lines = utterances
+      .map((e) => `${e.actor === "dm" ? "〔DM 主持人〕" : e.actor}：${String(e.payload.text ?? "")}`)
+      .join("\n");
     parts.push(`【目前公开发言】\n${lines}`);
   }
   return parts.join("\n\n");
