@@ -1,7 +1,8 @@
 // GameGraph —— 手写确定性编排控制器（设计 §4 / docs/specs/2026-06-08-gamegraph-skeleton-design.md）。
 // 把已有纯函数（visibility / release / context / tally）串成一局；玩家由 Participant 注入。
-import { visibleContext } from "./context";
-import { detectLeak, stripStageDirections } from "./leak";
+import { publicContext, visibleContext } from "./context";
+import type { DMSpeaker } from "./dm";
+import { detectDMLeak, detectLeak, stripStageDirections } from "./leak";
 import { createGameState, type GameEvent, type GameState } from "./models";
 import type { Participant } from "./participant";
 import { revealCluesForPhase } from "./release";
@@ -29,14 +30,16 @@ export class GameGraph {
   readonly state: GameState;
   private readonly scenario: Scenario;
   private readonly players: Map<string, Participant>;
+  private readonly dm?: DMSpeaker;
   private readonly steps: GraphStep[];
   private cursor = 0;
   private votes: Record<string, string | null> = {};
   result: VoteResult | null = null;
 
-  constructor(scenario: Scenario, participants: Participant[]) {
+  constructor(scenario: Scenario, participants: Participant[], dm?: DMSpeaker) {
     this.scenario = scenario;
     this.players = new Map(participants.map((p): [string, Participant] => [p.id, p]));
+    this.dm = dm;
     this.state = createGameState(scenario.participants);
     this.steps = this.plan();
   }
@@ -84,7 +87,7 @@ export class GameGraph {
   private async exec(s: GraphStep): Promise<void> {
     switch (s.kind) {
       case "enterPhase":
-        this.enterPhase(s.phase);
+        await this.enterPhase(s.phase);
         break;
       case "speak":
         await this.doSpeak(s.pid, s.instruction);
@@ -96,12 +99,12 @@ export class GameGraph {
         this.doTally();
         break;
       case "revealTruth":
-        this.revealTruth();
+        await this.revealTruth();
         break;
     }
   }
 
-  private enterPhase(phase: string): void {
+  private async enterPhase(phase: string): Promise<void> {
     this.state.phase = phase;
     this.push({
       id: `phase_${phase}`,
@@ -113,6 +116,43 @@ export class GameGraph {
     if (phase.startsWith("搜证")) {
       revealCluesForPhase(this.scenario, this.state, phase);
     }
+    if (phase !== "复盘") await this.dmSay(this.dmInstruction(phase), true);
+  }
+
+  /** 拼 DM 的主持指令：阶段名 + 要宣布的文本（开场=caseIntro；搜证=本阶段线索；directed 只给事实不给内容）。 */
+  private dmInstruction(phase: string): string {
+    const parts = [`现在进入「${phase}」阶段，请向玩家宣布。`];
+    if (phase === "开场") parts.push(`请介绍案情：${this.scenario.caseIntro}`);
+    if (phase.startsWith("搜证")) {
+      for (const item of this.scenario.infoItems) {
+        if (item.revealPhase !== phase) continue;
+        if (item.scope === "public") parts.push(`请宣布新线索：${item.text}`);
+        else if (item.scope === "directed")
+          parts.push(`请宣布：${item.owners.join("、")}收到一条私下线索（内容保密，不要编造）。`);
+      }
+    }
+    return parts.join("\n");
+  }
+
+  /** DM 话术：清洗→（可选）泄密检测→入流。任何一步不过=放弃，不重试——结构公告兜底（design 3b §5）。 */
+  private async dmSay(instruction: string, checkLeak: boolean): Promise<void> {
+    if (!this.dm) return;
+    let raw: string;
+    try {
+      raw = await this.dm.speak(publicContext(this.scenario, this.state), instruction);
+    } catch {
+      return;
+    }
+    const cleaned = stripStageDirections(raw);
+    if (cleaned === "") return;
+    if (checkLeak && detectDMLeak(cleaned, this.scenario, this.state) !== null) return;
+    this.push({
+      id: `dm_${this.cursor}`,
+      type: "utterance",
+      actor: "dm",
+      visibility: "public",
+      payload: { text: cleaned },
+    });
   }
 
   private async doSpeak(pid: string, instruction: string): Promise<void> {
@@ -168,9 +208,11 @@ export class GameGraph {
     this.push({ id: "vote_result", type: "vote", actor: "engine", visibility: "public", payload: { counts, accused } });
   }
 
-  private revealTruth(): void {
+  private async revealTruth(): Promise<void> {
+    const truths: string[] = [];
     for (const item of this.scenario.infoItems) {
       if (item.scope !== "omniscient") continue;
+      truths.push(item.text);
       this.push({
         id: `reveal_${item.id}`,
         type: "clue_release",
@@ -179,6 +221,7 @@ export class GameGraph {
         payload: { infoId: item.id, text: item.text },
       });
     }
+    await this.dmSay(`真相已揭晓如下：\n${truths.join("\n")}\n请向各位玩家做复盘解说。`, false);
   }
 
   private push(ev: GameEvent): void {

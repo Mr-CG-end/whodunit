@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { DMSpeaker } from "./dm";
 import { GameGraph } from "./graph";
 import type { Participant } from "./participant";
 import { stubParticipant } from "./participant";
@@ -182,5 +183,89 @@ describe("GameGraph 输出校验闸", () => {
       .map((e) => String(e.payload.text));
     expect(texts[0]).toBe("我有话直说。");
     expect(calls).toBe(4); // 首回合空输出重说 1 次（2 次生成）+ 后两回合各 1 次
+  });
+});
+
+describe("GameGraph DM 话术", () => {
+  const recordingDM = (line = "各位请就座。") => {
+    const calls: { ctx: string; instruction: string }[] = [];
+    const dm: DMSpeaker = {
+      async speak(ctx, instruction) {
+        calls.push({ ctx, instruction });
+        return line;
+      },
+    };
+    return { dm, calls };
+  };
+
+  it("7 个非复盘阶段各一条开场白 + 1 条复盘词，actor 为 dm", async () => {
+    const { dm } = recordingDM();
+    const g = new GameGraph(WUYE, stubs(), dm);
+    await g.runToEnd();
+    const dmUtts = g.state.publicEvents.filter((e) => e.type === "utterance" && e.actor === "dm");
+    expect(dmUtts).toHaveLength(8);
+    expect(dmUtts.every((e) => e.payload.text === "各位请就座。")).toBe(true);
+  });
+
+  it("隔离铁律：ctx 永不含秘密/真相；只有复盘 instruction 含真相", async () => {
+    const { dm, calls } = recordingDM();
+    await new GameGraph(WUYE, stubs(), dm).runToEnd();
+    for (const c of calls) {
+      expect(c.ctx).not.toContain("你就是凶手");
+      expect(c.ctx).not.toContain("凶手是陈博");
+      expect(c.ctx).not.toContain("安眠药");
+    }
+    const recap = calls[calls.length - 1];
+    expect(recap.instruction).toContain("凶手是陈博"); // truth 由上层显式递入
+    for (const c of calls.slice(0, -1)) {
+      expect(c.instruction).not.toContain("凶手是陈博");
+    }
+  });
+
+  it("搜证 instruction 含 public 线索文本、不含 directed 内容", async () => {
+    const { dm, calls } = recordingDM();
+    await new GameGraph(WUYE, stubs(), dm).runToEnd();
+    const sou1 = calls.find((c) => c.instruction.includes("搜证1"));
+    expect(sou1).toBeDefined();
+    expect(sou1?.instruction).toContain("青铜鼎上检出两组指纹"); // C2 public
+    expect(sou1?.instruction).toContain("私下线索"); // C4 只宣布事实
+    expect(sou1?.instruction).not.toContain("遗嘱副本是你拿走的"); // C4 内容不递给 DM
+  });
+
+  it("dm 抛错 → 无 dm 事件，整局照跑（降级=放弃不重试）", async () => {
+    const failDM: DMSpeaker = {
+      async speak() {
+        throw new Error("dm down");
+      },
+    };
+    const g = new GameGraph(WUYE, stubs(), failDM);
+    await expect(g.runToEnd()).resolves.toBeDefined();
+    expect(g.done()).toBe(true);
+    expect(g.state.publicEvents.some((e) => e.actor === "dm")).toBe(false);
+  });
+
+  it("dm 话术泄密 → 该条放弃；线索公开后同样的话放行；复盘免检", async () => {
+    const leakyDM: DMSpeaker = {
+      async speak() {
+        return "那尊鼎是赝品。"; // C6 的 alias，搜证2 才发布
+      },
+    };
+    const g = new GameGraph(WUYE, stubs(), leakyDM);
+    await g.runToEnd();
+    const evs = g.state.publicEvents;
+    const dmUtts = evs.filter((e) => e.type === "utterance" && e.actor === "dm");
+    // 开场/自我介绍/搜证1/讨论1 被拦（C6 未发布）；搜证2/讨论2/投票放行 + 复盘词免检
+    expect(dmUtts).toHaveLength(4);
+    const c6Idx = evs.findIndex((e) => e.type === "clue_release" && e.payload.infoId === "C6");
+    const firstDmIdx = evs.findIndex((e) => e.type === "utterance" && e.actor === "dm");
+    expect(firstDmIdx).toBeGreaterThan(c6Idx);
+  });
+
+  it("dm 话术过旁白清洗", async () => {
+    const { dm } = recordingDM("（清了清嗓子）天黑请闭眼……不，这是剧本杀。");
+    const g = new GameGraph(WUYE, stubs(), dm);
+    await g.runToEnd();
+    const first = g.state.publicEvents.find((e) => e.type === "utterance" && e.actor === "dm");
+    expect(String(first?.payload.text)).toBe("天黑请闭眼……不，这是剧本杀。");
   });
 });
