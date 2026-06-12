@@ -55,3 +55,13 @@ export function detectLeak(pid: string, text: string, scenario: Scenario, state:
   }
   return null;
 }
+
+/** DM 话术泄密检测（design 3b §5）：DM 没有"自己可见"豁免——
+ *  禁止集合 = 全部 private + 全部 omniscient + 未发布的 directed/public。复用 aliases 子串匹配，无 self_bury。 */
+export function detectDMLeak(text: string, scenario: Scenario, state: GameState): string | null {
+  for (const item of scenario.infoItems) {
+    if ((item.scope === "public" || item.scope === "directed") && state.revealedInfo.has(item.id)) continue;
+    if (item.aliases.some((a) => a !== "" && text.includes(a))) return item.id;
+  }
+  return null;
+}

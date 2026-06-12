@@ -2,6 +2,7 @@
 // 需要 SILICONFLOW_API_KEY（可写进 .env）。运行：npm run eval（局数 env EVAL_GAMES，默认 5）
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { aiParticipant } from "../engine/ai-participant";
+import { aiDMSpeaker } from "../engine/dm";
 import { GameGraph } from "../engine/graph";
 import { createLLMRouter } from "../engine/llm";
 import { WUYE } from "../engine/scenario";
@@ -18,7 +19,7 @@ async function main(): Promise<void> {
   for (let i = 0; i < k; i++) {
     const router = createLLMRouter();
     const players = WUYE.participants.map((id) => aiParticipant(id, router));
-    const graph = new GameGraph(WUYE, players);
+    const graph = new GameGraph(WUYE, players, aiDMSpeaker(router));
     const t0 = Date.now();
     let crashed = false;
     try {

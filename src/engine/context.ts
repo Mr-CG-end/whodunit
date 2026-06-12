@@ -20,7 +20,27 @@ export function visibleContext(pid: string, scenario: Scenario, state: GameState
   }
   const utterances = state.publicEvents.filter((e) => e.type === "utterance");
   if (utterances.length > 0) {
-    const lines = utterances.map((e) => `${e.actor}：${String(e.payload.text ?? "")}`).join("\n");
+    const lines = utterances
+      .map((e) => `${e.actor === "dm" ? "〔DM 主持人〕" : e.actor}：${String(e.payload.text ?? "")}`)
+      .join("\n");
+    parts.push(`【目前公开发言】\n${lines}`);
+  }
+  return parts.join("\n\n");
+}
+
+/** DM 视角的 public-safe 上下文：caseIntro + 公开事件流（design 3b §3）。
+ *  与 visibleContext 的本质区别：没有私密 info 通道——DM 的 prompt 里架构上不存在秘密与真相。 */
+export function publicContext(scenario: Scenario, state: GameState): string {
+  const parts: string[] = [`【案情】${scenario.caseIntro}`];
+  const revealed = scenario.infoItems.filter((i) => i.scope === "public" && state.revealedInfo.has(i.id));
+  if (revealed.length > 0) {
+    parts.push(`【已公开的线索】\n${revealed.map((i) => `[${i.id}] ${i.text}`).join("\n")}`);
+  }
+  const utterances = state.publicEvents.filter((e) => e.type === "utterance");
+  if (utterances.length > 0) {
+    const lines = utterances
+      .map((e) => `${e.actor === "dm" ? "〔DM 主持人〕" : e.actor}：${String(e.payload.text ?? "")}`)
+      .join("\n");
     parts.push(`【目前公开发言】\n${lines}`);
   }
   return parts.join("\n\n");

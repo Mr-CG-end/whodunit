@@ -2,6 +2,7 @@
 // 需要 SILICONFLOW_API_KEY（可写进 .env，见 .env.example）。运行：npm run play
 import { existsSync } from "node:fs";
 import { aiParticipant } from "./engine/ai-participant";
+import { aiDMSpeaker } from "./engine/dm";
 import { GameGraph } from "./engine/graph";
 import { createLLMRouter } from "./engine/llm";
 import { WUYE } from "./engine/scenario";
@@ -12,13 +13,14 @@ if (existsSync(".env")) process.loadEnvFile(".env");
 async function main(): Promise<void> {
   const router = createLLMRouter();
   const players = WUYE.participants.map((id) => aiParticipant(id, router));
-  const graph = new GameGraph(WUYE, players);
+  const graph = new GameGraph(WUYE, players, aiDMSpeaker(router));
 
   console.log(`《${WUYE.title}》开局\n${WUYE.caseIntro}\n`);
   await graph.runToEnd();
 
   for (const e of graph.state.publicEvents) {
     if (e.type === "phase_change") console.log(`\n=== ${String(e.payload.phase)} ===`);
+    else if (e.type === "utterance" && e.actor === "dm") console.log(`〔DM〕${String(e.payload.text)}`);
     else if (e.type === "utterance") console.log(`${e.actor}：${String(e.payload.text)}`);
     else if (e.type === "clue_release") console.log(`[线索] ${String(e.payload.text)}`);
     else if (e.type === "vote" && e.actor === "engine")

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectLeak, stripStageDirections } from "./leak";
+import { detectDMLeak, detectLeak, stripStageDirections } from "./leak";
 import { createGameState } from "./models";
 import { WUYE } from "./scenario";
 
@@ -108,5 +108,30 @@ describe("detectLeak 新增秘密 aliases 正向命中", () => {
   });
   it("别人提 00:20 → 命中陈博秘密", () => {
     expect(detectLeak("林雅", "00:20 你在哪里？", WUYE, stateWith())).toBe("secret_陈博");
+  });
+});
+
+describe("detectDMLeak DM 话术泄密检测", () => {
+  it("未发布线索 alias 命中", () => {
+    expect(detectDMLeak("据说那尊鼎是仿品。", WUYE, stateWith())).toBe("C6");
+  });
+  it("线索发布后放行（随 revealedInfo 收缩）", () => {
+    expect(detectDMLeak("据说那尊鼎是仿品。", WUYE, stateWith("C6"))).toBe(null);
+  });
+  it("秘密 alias 恒命中——DM 没有任何豁免", () => {
+    expect(detectDMLeak("有人给死者下过安眠药吗？", WUYE, stateWith("C1", "C2"))).toBe("secret_苏婉");
+  });
+  it("真相 alias 恒命中（omniscient 永在禁止集合，误投 revealedInfo 也不豁免）", () => {
+    const truthAliased = {
+      ...WUYE,
+      infoItems: WUYE.infoItems.map((i) => (i.id === "truth" ? { ...i, aliases: ["失手用那尊鼎"] } : i)),
+    };
+    expect(detectDMLeak("听说他是失手用那尊鼎打死的。", truthAliased, stateWith("truth"))).toBe("truth");
+  });
+  it("秘密被误投进 revealedInfo 仍恒禁（scope 判定先于发布判定）", () => {
+    expect(detectDMLeak("有人给死者下过安眠药吗？", WUYE, stateWith("secret_苏婉"))).toBe("secret_苏婉");
+  });
+  it("干净的主持话术放行", () => {
+    expect(detectDMLeak("夜色渐深，请各位开始搜证。", WUYE, stateWith("C1"))).toBe(null);
   });
 });
