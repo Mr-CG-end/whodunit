@@ -58,11 +58,14 @@ describe("publicContext DM 视角", () => {
 
   it("永不含秘密、真相与定向线索——即使已投递（隔离铁律）", () => {
     const s = createGameState(WUYE.participants);
-    for (const id of ["C1", "C2", "C5", "C4", "C3", "C6", "C8", "C9", "C7"]) s.revealedInfo.add(id);
+    // 连 truth/秘密都灌进 revealedInfo：即使上游误投，scope 白名单也必须挡住
+    for (const id of ["C1", "C2", "C5", "C4", "C3", "C6", "C8", "C9", "C7", "truth", "secret_陈博"])
+      s.revealedInfo.add(id);
     const ctx = publicContext(WUYE, s);
     expect(ctx).not.toContain("你就是凶手"); // 陈博的秘密
     expect(ctx).not.toContain("安眠药"); // 苏婉的秘密
     expect(ctx).not.toContain("凶手是陈博"); // 真相
     expect(ctx).not.toContain("遗嘱副本是你拿走的"); // C4 定向（已投递也不进 DM 视野）
+    expect(ctx).not.toContain("快去鉴定"); // C7 定向同理
   });
 });
