@@ -29,7 +29,8 @@ describe("aiDMSpeaker", () => {
     const { router, calls } = fakeRouter();
     await aiDMSpeaker(router).speak("ctx", "instr");
     expect(calls[0].system).toContain("主持人");
-    expect(calls[0].system).toContain("严禁编造");
+    expect(calls[0].system).toMatch(/编造/);
+    expect(calls[0].system).toMatch(/暗示.*凶手/);
   });
 
   it("返回文本原样上交（清洗在 graph 层）", async () => {
