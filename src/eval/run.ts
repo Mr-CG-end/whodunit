@@ -5,21 +5,23 @@ import { aiParticipant } from "../engine/ai-participant";
 import { aiDMSpeaker } from "../engine/dm";
 import { GameGraph } from "../engine/graph";
 import { createLLMRouter } from "../engine/llm";
-import { WUYE } from "../engine/scenario";
+import { selectScenario } from "../engine/scenarios";
 import { aggregate, evalGame, type GameRecord } from "./metrics";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
 async function main(): Promise<void> {
+  const scenario = selectScenario(process.argv);
   const k = Number(process.env.EVAL_GAMES ?? 5);
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
   mkdirSync("eval-runs", { recursive: true });
   const records: GameRecord[] = [];
+  console.log(`剧本：《${scenario.title}》 | 局数：${k}\n`);
 
   for (let i = 0; i < k; i++) {
     const router = createLLMRouter();
-    const players = WUYE.participants.map((id) => aiParticipant(id, router));
-    const graph = new GameGraph(WUYE, players, aiDMSpeaker(router));
+    const players = scenario.participants.map((id) => aiParticipant(id, router));
+    const graph = new GameGraph(scenario, players, aiDMSpeaker(router));
     const t0 = Date.now();
     let crashed = false;
     try {
@@ -31,7 +33,7 @@ async function main(): Promise<void> {
     const durationMs = Date.now() - t0;
     const metrics = crashed
       ? { completed: false, accused: null, accusedCorrect: false, phaseSequenceValid: false, voteFormatValid: false }
-      : evalGame(graph.state, WUYE);
+      : evalGame(graph.state, scenario);
     records.push({ metrics, durationMs, stats: router.stats() });
     writeFileSync(`eval-runs/${runId}-game${i + 1}.json`, JSON.stringify(graph.state.publicEvents, null, 2));
     console.log(

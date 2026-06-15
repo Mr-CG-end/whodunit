@@ -5,17 +5,18 @@ import { aiParticipant } from "./engine/ai-participant";
 import { aiDMSpeaker } from "./engine/dm";
 import { GameGraph } from "./engine/graph";
 import { createLLMRouter } from "./engine/llm";
-import { WUYE } from "./engine/scenario";
+import { selectScenario } from "./engine/scenarios";
 
 // 本地开发：若存在 .env 就加载（key 不入库）。
 if (existsSync(".env")) process.loadEnvFile(".env");
 
 async function main(): Promise<void> {
+  const scenario = selectScenario(process.argv);
   const router = createLLMRouter();
-  const players = WUYE.participants.map((id) => aiParticipant(id, router));
-  const graph = new GameGraph(WUYE, players, aiDMSpeaker(router));
+  const players = scenario.participants.map((id) => aiParticipant(id, router));
+  const graph = new GameGraph(scenario, players, aiDMSpeaker(router));
 
-  console.log(`《${WUYE.title}》开局\n${WUYE.caseIntro}\n`);
+  console.log(`《${scenario.title}》开局\n${scenario.caseIntro}\n`);
   await graph.runToEnd();
 
   for (const e of graph.state.publicEvents) {
@@ -27,7 +28,7 @@ async function main(): Promise<void> {
       console.log(`[计票] ${JSON.stringify(e.payload.counts)} → 指认 ${String(e.payload.accused)}`);
     else if (e.type === "vote") console.log(`[投票] ${e.actor} → ${String(e.payload.target)}`);
   }
-  console.log(`\n真凶：${WUYE.killer}　本局指认：${graph.result?.accused ?? "（无）"}`);
+  console.log(`\n真凶：${scenario.killer}　本局指认：${graph.result?.accused ?? "（无）"}`);
 }
 
 main().catch((err) => {
