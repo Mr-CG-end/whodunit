@@ -12,6 +12,18 @@ function systemPrompt(pid: string): string {
   );
 }
 
+/**
+ * 解析投票回复 —— 容忍带推理的长回复。
+ * 优先取末行「最终指认：X」标记；无标记时回退到全文唯一候选名匹配（向后兼容简短回复）。
+ * 仅当匹配到「恰好一个」候选才计为有效票，否则（弃权 / 没命中 / 命中多个）算弃权返回 null。
+ */
+function parseVote(reply: string, candidates: string[]): string | null {
+  const marker = [...reply.matchAll(/最终指认[：:]\s*(.+)/g)].pop();
+  const scope = marker ? marker[1] : reply;
+  const hit = candidates.filter((c) => scope.includes(c));
+  return hit.length === 1 ? hit[0] : null;
+}
+
 export function aiParticipant(pid: string, router: LLMRouter): Participant {
   return {
     id: pid,
@@ -22,10 +34,11 @@ export function aiParticipant(pid: string, router: LLMRouter): Participant {
       const reply = await router.complete(
         "player",
         systemPrompt(pid),
-        `${ctx}\n\n请从这些人里指认一名凶手：${candidates.join("、")}。只回复一个名字。`,
+        `${ctx}\n\n你必须从这些人里指认凶手：${candidates.join("、")}。` +
+          `先简要说明你的推理，然后另起一行、只用固定格式给出结论：「最终指认：名字」；` +
+          `若实在无法确定，写「最终指认：弃权」。`,
       );
-      const hit = candidates.filter((c) => reply.includes(c));
-      return hit.length === 1 ? hit[0] : null;
+      return parseVote(reply, candidates);
     },
   };
 }

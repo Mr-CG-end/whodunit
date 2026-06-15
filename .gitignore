@@ -25,3 +25,6 @@ eval-runs/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Claude Code 本地个人配置（权限放行等，仅本机生效，不入库）
+.claude/settings.local.json

@@ -15,7 +15,7 @@ export interface Scenario {
 export const PHASES = ["开场", "自我介绍", "搜证1", "讨论1", "搜证2", "讨论2", "投票", "复盘"];
 
 /** 建 InfoItem 的小工具：填默认值，让下面的剧本数据保持可读。 */
-function item(
+export function item(
   id: string,
   scope: Scope,
   text: string,

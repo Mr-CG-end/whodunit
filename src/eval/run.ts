@@ -5,25 +5,54 @@ import { aiParticipant } from "../engine/ai-participant";
 import { aiDMSpeaker } from "../engine/dm";
 import { GameGraph } from "../engine/graph";
 import { createLLMRouter } from "../engine/llm";
-import { WUYE } from "../engine/scenario";
+import { selectScenario } from "../engine/scenarios";
+import { formatEvent } from "../transcript";
 import { aggregate, evalGame, type GameRecord } from "./metrics";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
 
+/** 边跑边打印 transcript（EVAL_TRACE=1）；发言/投票标注本回合耗时。默认走 runToEnd 不打印。 */
+async function runGame(graph: GameGraph, trace: boolean, gameNo: number): Promise<void> {
+  if (!trace) {
+    await graph.runToEnd();
+    return;
+  }
+  console.log(`\n──────── 局 ${gameNo} 实时过程 ────────`);
+  let printed = 0;
+  while (!graph.done()) {
+    const t = Date.now();
+    await graph.step();
+    const dt = Date.now() - t;
+    const evs = graph.state.publicEvents;
+    for (; printed < evs.length; printed++) {
+      const line = formatEvent(evs[printed]);
+      if (line === null) continue;
+      const isTurn = evs[printed].type === "utterance" || evs[printed].type === "vote";
+      console.log(isTurn && dt > 1000 ? `${line}  (${(dt / 1000).toFixed(1)}s)` : line);
+    }
+  }
+}
+
 async function main(): Promise<void> {
+  const scenario = selectScenario(process.argv);
   const k = Number(process.env.EVAL_GAMES ?? 5);
+  const noDm = process.argv.includes("--no-dm");
+  const concurrency = Math.max(1, Number(process.env.EVAL_CONCURRENCY ?? 1));
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
   mkdirSync("eval-runs", { recursive: true });
-  const records: GameRecord[] = [];
+  // 并行时 transcript 会交错成乱码,只在串行时开 trace
+  const trace = process.env.EVAL_TRACE === "1" && concurrency === 1;
+  console.log(`剧本：《${scenario.title}》 | 局数：${k} | DM：${noDm ? "关" : "开"} | 并发：${concurrency}\n`);
 
-  for (let i = 0; i < k; i++) {
+  const records: GameRecord[] = new Array(k);
+  const playGame = async (i: number): Promise<void> => {
     const router = createLLMRouter();
-    const players = WUYE.participants.map((id) => aiParticipant(id, router));
-    const graph = new GameGraph(WUYE, players, aiDMSpeaker(router));
+    const players = scenario.participants.map((id) => aiParticipant(id, router));
+    const graph = new GameGraph(scenario, players, noDm ? undefined : aiDMSpeaker(router));
     const t0 = Date.now();
     let crashed = false;
     try {
-      await graph.runToEnd();
+      await runGame(graph, trace, i + 1);
     } catch (err) {
       crashed = true;
       console.error(`局 ${i + 1} 崩溃：`, err);
@@ -31,13 +60,20 @@ async function main(): Promise<void> {
     const durationMs = Date.now() - t0;
     const metrics = crashed
       ? { completed: false, accused: null, accusedCorrect: false, phaseSequenceValid: false, voteFormatValid: false }
-      : evalGame(graph.state, WUYE);
-    records.push({ metrics, durationMs, stats: router.stats() });
+      : evalGame(graph.state, scenario);
+    records[i] = { metrics, durationMs, stats: router.stats() };
     writeFileSync(`eval-runs/${runId}-game${i + 1}.json`, JSON.stringify(graph.state.publicEvents, null, 2));
     console.log(
       `局 ${i + 1}/${k}: 指认 ${metrics.accused ?? "—"} ${metrics.accusedCorrect ? "✓" : "✗"} | ${(durationMs / 1000).toFixed(1)}s`,
     );
-  }
+  };
+
+  // 固定大小的工作池：next 自增领号,跑满 k 局
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < k) await playGame(next++);
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, k) }, worker));
 
   const summary = aggregate(records);
   writeFileSync(`eval-runs/${runId}-summary.json`, JSON.stringify(summary, null, 2));

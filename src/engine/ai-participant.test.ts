@@ -44,4 +44,27 @@ describe("aiParticipant", () => {
     const p = aiParticipant("林雅", routerWith("可能是陈博，也可能是苏婉。"));
     expect(await p.vote("ctx", ["陈博", "苏婉"])).toBe(null);
   });
+
+  it("vote 取末行「最终指认」的名字，忽略前文提到的其他候选", async () => {
+    const p = aiParticipant("林雅", routerWith("苏婉有不在场证明，应排除。\n最终指认：陈博"));
+    expect(await p.vote("ctx", ["陈博", "苏婉"])).toBe("陈博");
+  });
+
+  it("vote 末行「最终指认：弃权」→ null", async () => {
+    const p = aiParticipant("林雅", routerWith("证据不足，难以断定。\n最终指认：弃权"));
+    expect(await p.vote("ctx", ["陈博", "苏婉"])).toBe(null);
+  });
+
+  it("vote 末行 marker 含多个名字 → 弃权（安全）", async () => {
+    const p = aiParticipant("林雅", routerWith("最终指认：陈博 或 苏婉"));
+    expect(await p.vote("ctx", ["陈博", "苏婉"])).toBe(null);
+  });
+
+  it("vote prompt 要求末行用「最终指认」格式输出", async () => {
+    const complete = vi.fn<LLMRouter["complete"]>(async () => "最终指认：陈博");
+    const p = aiParticipant("林雅", { complete, stats: noStats });
+    await p.vote("ctx", ["陈博", "苏婉"]);
+    const user = complete.mock.calls[0][2];
+    expect(user).toContain("最终指认");
+  });
 });
