@@ -1,2 +1,5 @@
+# 统一行尾为 LF：根治 Windows core.autocrlf 检出 CRLF 与 Biome 期望 LF 的冲突。
+* text=auto eol=lf
+
 # Archived Phase 0 Python spike; keep it in the repository but exclude it from GitHub language stats.
 spike/** -linguist-detectable
