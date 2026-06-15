@@ -6,6 +6,7 @@ import { aiDMSpeaker } from "./engine/dm";
 import { GameGraph } from "./engine/graph";
 import { createLLMRouter } from "./engine/llm";
 import { selectScenario } from "./engine/scenarios";
+import { formatEvent } from "./transcript";
 
 // 本地开发：若存在 .env 就加载（key 不入库）。
 if (existsSync(".env")) process.loadEnvFile(".env");
@@ -20,13 +21,8 @@ async function main(): Promise<void> {
   await graph.runToEnd();
 
   for (const e of graph.state.publicEvents) {
-    if (e.type === "phase_change") console.log(`\n=== ${String(e.payload.phase)} ===`);
-    else if (e.type === "utterance" && e.actor === "dm") console.log(`〔DM〕${String(e.payload.text)}`);
-    else if (e.type === "utterance") console.log(`${e.actor}：${String(e.payload.text)}`);
-    else if (e.type === "clue_release") console.log(`[线索] ${String(e.payload.text)}`);
-    else if (e.type === "vote" && e.actor === "engine")
-      console.log(`[计票] ${JSON.stringify(e.payload.counts)} → 指认 ${String(e.payload.accused)}`);
-    else if (e.type === "vote") console.log(`[投票] ${e.actor} → ${String(e.payload.target)}`);
+    const line = formatEvent(e);
+    if (line !== null) console.log(line);
   }
   console.log(`\n真凶：${scenario.killer}　本局指认：${graph.result?.accused ?? "（无）"}`);
 }

@@ -6,15 +6,39 @@ import { aiDMSpeaker } from "../engine/dm";
 import { GameGraph } from "../engine/graph";
 import { createLLMRouter } from "../engine/llm";
 import { selectScenario } from "../engine/scenarios";
+import { formatEvent } from "../transcript";
 import { aggregate, evalGame, type GameRecord } from "./metrics";
 
 if (existsSync(".env")) process.loadEnvFile(".env");
+
+/** 边跑边打印 transcript（EVAL_TRACE=1）；发言/投票标注本回合耗时。默认走 runToEnd 不打印。 */
+async function runGame(graph: GameGraph, trace: boolean, gameNo: number): Promise<void> {
+  if (!trace) {
+    await graph.runToEnd();
+    return;
+  }
+  console.log(`\n──────── 局 ${gameNo} 实时过程 ────────`);
+  let printed = 0;
+  while (!graph.done()) {
+    const t = Date.now();
+    await graph.step();
+    const dt = Date.now() - t;
+    const evs = graph.state.publicEvents;
+    for (; printed < evs.length; printed++) {
+      const line = formatEvent(evs[printed]);
+      if (line === null) continue;
+      const isTurn = evs[printed].type === "utterance" || evs[printed].type === "vote";
+      console.log(isTurn && dt > 1000 ? `${line}  (${(dt / 1000).toFixed(1)}s)` : line);
+    }
+  }
+}
 
 async function main(): Promise<void> {
   const scenario = selectScenario(process.argv);
   const k = Number(process.env.EVAL_GAMES ?? 5);
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
   mkdirSync("eval-runs", { recursive: true });
+  const trace = process.env.EVAL_TRACE === "1";
   const records: GameRecord[] = [];
   console.log(`剧本：《${scenario.title}》 | 局数：${k}\n`);
 
@@ -25,7 +49,7 @@ async function main(): Promise<void> {
     const t0 = Date.now();
     let crashed = false;
     try {
-      await graph.runToEnd();
+      await runGame(graph, trace, i + 1);
     } catch (err) {
       crashed = true;
       console.error(`局 ${i + 1} 崩溃：`, err);
